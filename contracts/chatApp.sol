@@ -1,13 +1,12 @@
-
-//SPDX-License-Identifier: MIT
-
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.7.0 <0.9.0;
 
 contract ChatApp{
 
+    //USER STRUCT
     struct user{
         string name;
-        friend[] frienList;
+        friend[] friendList;
     }
 
     struct friend{
@@ -17,7 +16,7 @@ contract ChatApp{
 
     struct message{
         address sender;
-        uint256 timeStamp;
+        uint256 timestamp;
         string msg;
     }
 
@@ -28,79 +27,93 @@ contract ChatApp{
 
     AllUserStruck[] getAllUsers;
 
-    mapping (address => user) userList;
+    mapping(address => user) userList;
     mapping(bytes32 => message[]) allMessages;
 
-    function checkUserExist(address pubkey) public view returns(bool){
+    //CHECK USER EXIST
+    function checkUserExists(address pubkey) public view returns(bool){
         return bytes(userList[pubkey].name).length > 0;
     }
 
-    function createAccount(string calldata name) external{
-        require(checkUserExist(msg.sender) == false,"user already exist");
-        require(bytes(name).length > 0,"username cannot be empty");
+    //CREATE ACCOUNT
+    function createAccount(string calldata name) external {
+        require(checkUserExists(msg.sender) == false, "User already exists");
+        require(bytes(name).length>0, "Username cannot be empty");
+
         userList[msg.sender].name = name;
-        getAllUsers.push(AllUserStruck(name,msg.sender));
+
+        getAllUsers.push(AllUserStruck(name, msg.sender));
     }
 
-    function getUserName(address pubkey) external view returns(string memory){
-        require(checkUserExist(pubkey) == false,"User is not registered");
+    //GET USERNAME
+    function getUsername(address pubkey) external view returns(string memory){
+        require(checkUserExists(pubkey), "User is not registered");
         return userList[pubkey].name;
     }
 
-    function addFriend(address friend_key,string calldata name)external{
-        require(checkUserExist(msg.sender) == false,"Create an account first");
-        require(checkUserExist(friend_key) == false,"User is not registered!");
-        require(msg.sender != friend_key,"Users cannot add themselves as a friend");
-        require(checkAlreadyFriends(msg.sender,friend_key)==false,"These users are already friends");
-        _addfriend(msg.sender, friend_key,name);
-        _addfriend(friend_key,msg.sender,userList[msg.sender].name);
+    //ADD FRIENDS
+    function addFriend(address friend_key, string calldata name) external{
+        require(checkUserExists(msg.sender), "Create an account first");
+        require(checkUserExists(friend_key), "User is not registered!");
+        require(msg.sender != friend_key, "Users cannot add themeselves as friends");
+        require(checkAlreadyFriends(msg.sender, friend_key)== false, "These users are already friends");
+
+        _addFriend(msg.sender, friend_key, name);
+        _addFriend(friend_key, msg.sender, userList[msg.sender].name);
     }
 
-    function checkAlreadyFriends(address pubKey1,address pubkey2) internal view returns(bool){
-        if(userList[pubKey1].frienList.length > userList[pubkey2].frienList.length){
-            address tmp = pubKey1;
-            pubKey1 = pubkey2;
+    //checkAlreadyFriends
+    function checkAlreadyFriends(address pubkey1, address pubkey2) internal view returns (bool){
+
+        if(userList[pubkey1].friendList.length > userList[pubkey2].friendList.length){
+            address tmp = pubkey1;
+            pubkey1 = pubkey2;
             pubkey2 = tmp;
         }
 
-        for(uint256 i =0; i< userList[pubKey1].frienList.length; i++){
-            if(userList[pubKey1].frienList[i].pubkey == pubkey2) return true;
+        for(uint256 i = 0; i < userList[pubkey1].friendList.length; i++){
+            
+            if(userList[pubkey1].friendList[i].pubkey == pubkey2) return true;
         }
         return false;
     }
 
-    function _addfriend(address me,address friend_key,string memory name)internal{
-         friend memory newFriend = friend(friend_key,name);
-         userList[me].frienList.push(newFriend);
+    function _addFriend(address me, address friend_key, string memory name) internal{
+        friend memory newFriend = friend(friend_key, name);
+       userList[me].friendList.push(newFriend);
     }
 
-    function getMyFriendList() external view returns (friend[] memory){
-        return userList[msg.sender].frienList;
+    //GETMY FRIEND
+    function getMyFriendList() external view returns(friend[] memory){
+        return userList[msg.sender].friendList;
     }
 
-    function _getChatCode(address pubKey1,address pubKey2) internal pure returns(bytes32){
-        if(pubKey1 > pubKey2){
-            return keccak256(abi.encodePacked(pubKey1,pubKey2));
-        }else{
-            return keccak256(abi.encodePacked(pubKey2,pubKey1));
-        }
+    //get chat code
+    function _getChatCode(address pubkey1, address pubkey2) internal pure returns(bytes32){
+        if(pubkey1 < pubkey2){
+            return keccak256(abi.encodePacked(pubkey1, pubkey2));
+        } else 
+        return keccak256(abi.encodePacked(pubkey2, pubkey1));
     }
 
-    function sendMessage(address friend_key,string calldata _msg) external{
-        require(checkUserExist(msg.sender),"create an account first");
-        require(checkUserExist(friend_key),"user is not registered");
-        require(checkAlreadyFriends(msg.sender,friend_key),"you are not friend with user ");
-        bytes32 chatcode = _getChatCode(msg.sender,friend_key);
-        message memory newMsg = message(msg.sender,block.timestamp,_msg );
-        allMessages[chatcode].push(newMsg);
+    //SEND MESSAGE
+    function sendMessage(address friend_key, string calldata _msg) external{
+        require(checkUserExists(msg.sender), "Create an account first");
+        require(checkUserExists(friend_key), "User is not registered");
+        require(checkAlreadyFriends(msg.sender, friend_key), "You are not friend with the given user");
+
+        bytes32 chatCode = _getChatCode(msg.sender, friend_key);
+        message memory newMsg = message(msg.sender, block.timestamp, _msg);
+        allMessages[chatCode].push(newMsg);
     }
 
-    function readMessage(address friend_key)external view returns(message[] memory){
-        bytes32 chatcode = _getChatCode(msg.sender,friend_key);
-        return allMessages[chatcode];
+    //READ MESSAGE
+    function readMessage(address friend_key) external view returns(message[] memory){
+        bytes32 chatCode = _getChatCode(msg.sender, friend_key);
+        return allMessages[chatCode];
     }
 
-    function getAllAppUsers() public view returns(AllUserStruck[] memory){
+    function getAllAppUser() public view returns(AllUserStruck[] memory){
         return getAllUsers;
     }
 }
